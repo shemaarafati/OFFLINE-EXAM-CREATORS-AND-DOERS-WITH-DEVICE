@@ -11,36 +11,87 @@ public class LoginFrame extends JFrame {
     private JPasswordField passwordField;
 
     public LoginFrame() {
-        setTitle("Login - Offline Exam System");
-        setSize(400, 300);
+        setTitle("Offline Exam System - Login");
+        setSize(450, 350);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setResizable(false);
         init();
     }
 
     private void init() {
-        JPanel panel = new JPanel(new GridLayout(4, 2, 10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        // Main container
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(245, 245, 250)); // Light background
 
-        panel.add(new JLabel("Username:"));
-        usernameField = new JTextField();
-        panel.add(usernameField);
+        // Header
+        JLabel header = new JLabel("Offline Exam System", SwingConstants.CENTER);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        header.setForeground(new Color(50, 50, 120));
+        header.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+        mainPanel.add(header, BorderLayout.NORTH);
 
-        panel.add(new JLabel("Password:"));
-        passwordField = new JPasswordField();
-        panel.add(passwordField);
+        // Form panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBackground(Color.WHITE);
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(50, 50, 120), 2, true),
+                BorderFactory.createEmptyBorder(20, 30, 20, 30)
+        ));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Username
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        formPanel.add(new JLabel("Username:"), gbc);
+
+        gbc.gridx = 1;
+        usernameField = new JTextField(15);
+        usernameField.setBorder(BorderFactory.createLineBorder(new Color(50, 50, 120)));
+        formPanel.add(usernameField, gbc);
+
+        // Password
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(new JLabel("Password:"), gbc);
+
+        gbc.gridx = 1;
+        passwordField = new JPasswordField(15);
+        passwordField.setBorder(BorderFactory.createLineBorder(new Color(50, 50, 120)));
+        formPanel.add(passwordField, gbc);
+
+        // Buttons panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        buttonPanel.setBackground(Color.WHITE);
 
         JButton loginBtn = new JButton("Login");
+        loginBtn.setBackground(new Color(50, 50, 120));
+        loginBtn.setForeground(Color.WHITE);
+        loginBtn.setFocusPainted(false);
+        loginBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         loginBtn.addActionListener(e -> login());
-        panel.add(loginBtn);
 
         JButton signupBtn = new JButton("Sign Up");
-        signupBtn.addActionListener(e -> {
-            new SignupFrame().setVisible(true);
-        });
-        panel.add(signupBtn);
+        signupBtn.setBackground(new Color(70, 130, 180));
+        signupBtn.setForeground(Color.WHITE);
+        signupBtn.setFocusPainted(false);
+        signupBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        signupBtn.addActionListener(e -> new SignupFrame().setVisible(true));
 
-        add(panel);
+        buttonPanel.add(loginBtn);
+        buttonPanel.add(signupBtn);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        formPanel.add(buttonPanel, gbc);
+
+        mainPanel.add(formPanel, BorderLayout.CENTER);
+
+        add(mainPanel);
     }
 
     private void login() {
@@ -57,7 +108,6 @@ public class LoginFrame extends JFrame {
 
         if (user != null) {
             JOptionPane.showMessageDialog(this, "Login successful! Welcome " + user.getFullName());
-            // Open appropriate dashboard based on role
             openDashboard(user);
             dispose();
         } else {
@@ -66,14 +116,14 @@ public class LoginFrame extends JFrame {
     }
 
     private void openDashboard(User user) {
-        switch (user.getRole()) {
-            case "admin":
+        switch (user.getRole().toUpperCase()) { // Make role check case-insensitive
+            case "ADMIN":
                 new AdminDashboard().setVisible(true);
                 break;
-            case "teacher":
+            case "TEACHER":
                 new TeacherDashboard(user).setVisible(true);
                 break;
-            case "student":
+            case "STUDENT":
                 new StudentDashboard(user).setVisible(true);
                 break;
             default:
