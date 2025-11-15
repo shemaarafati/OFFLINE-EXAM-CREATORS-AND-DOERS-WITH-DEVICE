@@ -2,503 +2,736 @@ package com.offlineexam.view;
 
 import com.offlineexam.model.*;
 import com.offlineexam.service.*;
+
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import java.awt.*;
 import java.util.List;
-import java.util.ArrayList;
 
 public class TeacherDashboard extends JFrame {
-    private User teacher;
+    private User currentUser;
+    private JTabbedPane tabbedPane;
+    private DefaultTableModel coursesModel, examsModel, enrollmentsModel;
 
-    public TeacherDashboard(User teacher) {
-        this.teacher = teacher;
-        setTitle("Teacher Dashboard - " + teacher.getFullName());
-        setSize(1000, 700);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    public TeacherDashboard(User user) {
+        this.currentUser = user;
+        setTitle("Teacher Dashboard - Exam System");
+        setSize(1200, 800);
         setLocationRelativeTo(null);
-        init();
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        initComponents();
+        loadData();
     }
 
-    private void init() {
-        setLayout(new BorderLayout());
+    private void initComponents() {
+        // Main panel with gradient background
+        JPanel mainPanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                GradientPaint gradient = new GradientPaint(0, 0, new Color(39, 174, 96), 0, getHeight(), new Color(33, 145, 80));
+                g2d.setPaint(gradient);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 
-        // Top panel with welcome message
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        topPanel.setBackground(new Color(70, 130, 180));
+        // Sidebar
+        JPanel sidebar = createSidebar();
+        mainPanel.add(sidebar, BorderLayout.WEST);
 
-        JLabel welcomeLabel = new JLabel("Teacher Dashboard - Welcome, " + teacher.getFullName());
-        welcomeLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        welcomeLabel.setForeground(Color.WHITE);
-        topPanel.add(welcomeLabel, BorderLayout.WEST);
+        // Content area with tabs
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        contentPanel.setBackground(Color.WHITE);
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JButton btnRefresh = new JButton("Refresh All");
-        btnRefresh.setBackground(new Color(34, 139, 34));
-        btnRefresh.setForeground(Color.WHITE);
-        topPanel.add(btnRefresh, BorderLayout.EAST);
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(Color.WHITE);
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
 
-        add(topPanel, BorderLayout.NORTH);
+        JLabel titleLabel = new JLabel("Teaching Dashboard");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        titleLabel.setForeground(new Color(44, 62, 80));
 
-        // Main tabbed pane
-        JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setFont(new Font("Arial", Font.PLAIN, 12));
+        JLabel welcomeLabel = new JLabel("Welcome, Professor " + currentUser.getFullName());
+        welcomeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        welcomeLabel.setForeground(new Color(127, 140, 141));
 
-        // Tab 1: Enrollment Requests
-        JPanel requestsPanel = createRequestsPanel();
-        tabbedPane.addTab("Enrollment Requests", requestsPanel);
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        headerPanel.add(welcomeLabel, BorderLayout.EAST);
 
-        // Tab 2: My Courses
-        JPanel coursesPanel = createCoursesPanel();
-        tabbedPane.addTab("My Courses", coursesPanel);
+        // Create styled tabbed pane (tabs will be hidden, navigation uses sidebar)
+        tabbedPane = new JTabbedPane();
+        tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 12));
 
-        // Tab 3: Exam Management
-        JPanel examsPanel = createExamsPanel();
-        tabbedPane.addTab("Exam Management", examsPanel);
+        // Style the tabs
+        tabbedPane.setBackground(Color.WHITE);
+        tabbedPane.setForeground(new Color(44, 62, 80));
 
-        // Tab 4: Results
-        JPanel resultsPanel = createResultsPanel();
-        tabbedPane.addTab("Student Results", resultsPanel);
+        tabbedPane.addTab("My Courses", createCoursesPanel());
+        tabbedPane.addTab("Exam Management", createExamsPanel());
+        tabbedPane.addTab("Enrollment Requests", createEnrollmentsPanel());
+        tabbedPane.addTab("Settings", createSettingsPanel());
 
-        add(tabbedPane, BorderLayout.CENTER);
-
-        // Bottom status panel
-        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        statusPanel.setBorder(BorderFactory.createEtchedBorder());
-        JLabel statusLabel = new JLabel("Ready");
-        statusPanel.add(statusLabel);
-        add(statusPanel, BorderLayout.SOUTH);
-
-        // Refresh button action
-        btnRefresh.addActionListener(e -> {
-            refreshAllTabs();
-            statusLabel.setText("All data refreshed - " + new java.util.Date());
-        });
-
-        // Load initial data
-        refreshAllTabs();
-    }
-
-    private JPanel createRequestsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        // Title
-        JLabel titleLabel = new JLabel("Pending Enrollment Requests");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(titleLabel, BorderLayout.NORTH);
-
-        // Requests list
-        DefaultListModel<String> requestsModel = new DefaultListModel<>();
-        JList<String> requestsList = new JList<>(requestsModel);
-        requestsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        requestsList.setFont(new Font("Arial", Font.PLAIN, 12));
-
-        JScrollPane scrollPane = new JScrollPane(requestsList);
-        scrollPane.setPreferredSize(new Dimension(400, 300));
-        panel.add(scrollPane, BorderLayout.CENTER);
-
-        // Button panel
-        JPanel buttonPanel = new JPanel(new FlowLayout());
-
-        JButton btnApprove = new JButton("Approve Selected");
-        btnApprove.setBackground(new Color(34, 139, 34));
-        btnApprove.setForeground(Color.WHITE);
-
-        JButton btnViewAll = new JButton("View All Requests");
-        JButton btnRefresh = new JButton("Refresh Requests");
-
-        buttonPanel.add(btnApprove);
-        buttonPanel.add(btnViewAll);
-        buttonPanel.add(btnRefresh);
-
-        panel.add(buttonPanel, BorderLayout.SOUTH);
-
-        // Button actions
-        btnApprove.addActionListener(e -> {
-            int selectedIndex = requestsList.getSelectedIndex();
-            if (selectedIndex != -1) {
-                approveSelectedRequest(selectedIndex, requestsModel);
-            } else {
-                JOptionPane.showMessageDialog(this, "Please select a request first");
+        // Hide the visible tab bar; navigation is handled by sidebar buttons
+        tabbedPane.setUI(new BasicTabbedPaneUI() {
+            @Override
+            protected int calculateTabAreaHeight(int tabPlacement, int runCount, int maxTabHeight) {
+                return 0;
             }
         });
 
-        btnViewAll.addActionListener(e -> showAllRequests());
+        contentPanel.add(headerPanel, BorderLayout.NORTH);
+        contentPanel.add(tabbedPane, BorderLayout.CENTER);
 
-        btnRefresh.addActionListener(e -> loadPendingRequests(requestsModel));
+        mainPanel.add(contentPanel, BorderLayout.CENTER);
+        add(mainPanel);
+    }
 
-        // Load initial data
-        loadPendingRequests(requestsModel);
+    private JPanel createSidebar() {
+        JPanel sidebar = new JPanel();
+        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        sidebar.setBackground(new Color(44, 62, 80));
+        sidebar.setPreferredSize(new Dimension(250, getHeight()));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(20, 15, 20, 15));
 
-        return panel;
+        // Logo
+        JLabel logoLabel = new JLabel("TEACHER PANEL");
+        logoLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        logoLabel.setForeground(Color.WHITE);
+        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        logoLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 30, 0));
+
+        // Navigation buttons
+        String[] menuItems = {"Overview", "Courses", "Exams", "Students", "Grades", "Settings"};
+
+        for (String item : menuItems) {
+            JButton menuButton = createMenuButton(item);
+            menuButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+            menuButton.addActionListener(e -> {
+                String text = menuButton.getText();
+                if (text.contains("Overview") || text.contains("Courses")) {
+                    tabbedPane.setSelectedIndex(0); // My Courses
+                } else if (text.contains("Exams") || text.contains("Grades")) {
+                    tabbedPane.setSelectedIndex(1); // Exam Management
+                } else if (text.contains("Students")) {
+                    tabbedPane.setSelectedIndex(2); // Enrollment Requests
+                } else if (text.contains("Settings")) {
+                    tabbedPane.setSelectedIndex(3); // Settings
+                }
+            });
+            sidebar.add(menuButton);
+            sidebar.add(Box.createRigidArea(new Dimension(0, 8)));
+        }
+
+        sidebar.add(Box.createVerticalGlue());
+
+        // User info and logout
+        JPanel userPanel = new JPanel();
+        userPanel.setLayout(new BoxLayout(userPanel, BoxLayout.Y_AXIS));
+        userPanel.setBackground(new Color(39, 174, 96));
+        userPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        userPanel.setMaximumSize(new Dimension(250, 100));
+
+        JLabel userName = new JLabel("Prof. " + currentUser.getFullName());
+        userName.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        userName.setForeground(Color.WHITE);
+        userName.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel userRole = new JLabel("Teacher");
+        userRole.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        userRole.setForeground(new Color(220, 220, 220));
+        userRole.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JButton logoutBtn = createMenuButton("Logout");
+        logoutBtn.setBackground(new Color(231, 76, 60));
+        logoutBtn.addActionListener(e -> logout());
+
+        userPanel.add(userName);
+        userPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        userPanel.add(userRole);
+        userPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        userPanel.add(logoutBtn);
+
+        sidebar.add(userPanel);
+
+        return sidebar;
+    }
+
+    private JButton createMenuButton(String text) {
+        JButton button = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isPressed()) {
+                    g2.setColor(new Color(39, 174, 96));
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(52, 73, 94));
+                } else {
+                    g2.setColor(new Color(52, 73, 94));
+                }
+
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                super.paintComponent(g);
+            }
+        };
+
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        button.setBorder(BorderFactory.createEmptyBorder(12, 20, 12, 20));
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setMaximumSize(new Dimension(220, 45));
+        button.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        return button;
     }
 
     private JPanel createCoursesPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBackground(Color.WHITE);
 
-        JLabel titleLabel = new JLabel("My Assigned Courses");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(titleLabel, BorderLayout.NORTH);
+        String[] columns = {"Course ID", "Course Name", "Description", "Students", "Status", "Actions"};
+        coursesModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 5; // Only actions column is editable
+            }
+        };
+        JTable coursesTable = createStyledTable(coursesModel);
 
-        DefaultListModel<String> coursesModel = new DefaultListModel<>();
-        JList<String> coursesList = new JList<>(coursesModel);
-        coursesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        JScrollPane scrollPane = new JScrollPane(coursesList);
+        JScrollPane scrollPane = new JScrollPane(coursesTable);
         panel.add(scrollPane, BorderLayout.CENTER);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout());
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        buttonPanel.setBackground(Color.WHITE);
 
-        JButton btnCreateExam = new JButton("Create Exam for Selected Course");
-        btnCreateExam.setBackground(new Color(70, 130, 180));
-        btnCreateExam.setForeground(Color.WHITE);
+        JButton refreshBtn = createActionButton("Refresh Courses", new Color(52, 152, 219));
+        refreshBtn.addActionListener(e -> loadCourses());
 
-        JButton btnRefresh = new JButton("Refresh Courses");
-
-        buttonPanel.add(btnCreateExam);
-        buttonPanel.add(btnRefresh);
-
+        buttonPanel.add(refreshBtn);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
-        btnCreateExam.addActionListener(e -> {
-            int selectedIndex = coursesList.getSelectedIndex();
-            if (selectedIndex != -1) {
-                createExamForCourse(selectedIndex, coursesModel);
+        return panel;
+    }
+
+    private JPanel createSettingsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JPanel topPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        topPanel.setOpaque(false);
+
+        // Profile update panel
+        JPanel profilePanel = new JPanel(new GridBagLayout());
+        profilePanel.setBorder(BorderFactory.createTitledBorder("Profile"));
+        profilePanel.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel userIdLabel = new JLabel("User ID:");
+        JTextField userIdField = new JTextField(currentUser.getUserId());
+        userIdField.setEditable(false);
+
+        JLabel usernameLabel = new JLabel("Username:");
+        JTextField usernameField = new JTextField(currentUser.getUsername());
+
+        JLabel passwordLabel = new JLabel("New Password:");
+        JPasswordField passwordField = new JPasswordField();
+
+        gbc.gridx = 0; gbc.gridy = 0;
+        profilePanel.add(userIdLabel, gbc);
+        gbc.gridx = 1;
+        profilePanel.add(userIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        profilePanel.add(usernameLabel, gbc);
+        gbc.gridx = 1;
+        profilePanel.add(usernameField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
+        profilePanel.add(passwordLabel, gbc);
+        gbc.gridx = 1;
+        profilePanel.add(passwordField, gbc);
+
+        JButton updateProfileBtn = createActionButton("Update Profile", new Color(39, 174, 96));
+        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
+        profilePanel.add(updateProfileBtn, gbc);
+
+        updateProfileBtn.addActionListener(e -> {
+            String newUsername = usernameField.getText().trim();
+            String newPassword = new String(passwordField.getPassword()).trim();
+
+            if (newUsername.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Username cannot be empty.");
+                return;
+            }
+
+            if (newPassword.isEmpty()) {
+                newPassword = currentUser.getPassword();
+            }
+
+            // fullName and email are not stored in DB, so pass nulls
+            boolean ok = UserService.updateUserProfile(currentUser.getUserId(), newUsername, newPassword, null, null);
+            if (ok) {
+                currentUser.setUsername(newUsername);
+                currentUser.setPassword(newPassword);
+                JOptionPane.showMessageDialog(this, "Profile updated successfully.");
             } else {
-                JOptionPane.showMessageDialog(this, "Please select a course first");
+                JOptionPane.showMessageDialog(this, "Failed to update profile.");
             }
         });
 
-        btnRefresh.addActionListener(e -> loadTeacherCourses(coursesModel));
+        // Overview panel
+        JPanel overviewPanel = new JPanel();
+        overviewPanel.setBorder(BorderFactory.createTitledBorder("Overview"));
+        overviewPanel.setLayout(new GridLayout(3, 1, 5, 5));
+        overviewPanel.setOpaque(false);
 
-        loadTeacherCourses(coursesModel);
+        int totalCourses = 0;
+        int totalExams = 0;
+        int totalStudents = 0;
+
+        List<Course> teacherCourses = CourseService.getCoursesByTeacher(currentUser.getUserId());
+        totalCourses = teacherCourses.size();
+        for (Course c : teacherCourses) {
+            totalStudents += EnrollmentService.countApprovedEnrollmentsByCourse(c.getCourseId());
+        }
+
+        List<Exam> teacherExams = ExamService.getExamsByTeacher(currentUser.getUserId());
+        totalExams = teacherExams.size();
+
+        overviewPanel.add(new JLabel("Total Assigned Courses: " + totalCourses));
+        overviewPanel.add(new JLabel("Total Exams Created: " + totalExams));
+        overviewPanel.add(new JLabel("Total Students Enrolled: " + totalStudents));
+
+        topPanel.add(profilePanel);
+        topPanel.add(overviewPanel);
+
+        // Assigned courses table
+        String[] cols = {"Course ID", "Course Name", "Description", "Students"};
+        DefaultTableModel assignedModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        JTable assignedTable = createStyledTable(assignedModel);
+        for (Course c : teacherCourses) {
+            int students = EnrollmentService.countApprovedEnrollmentsByCourse(c.getCourseId());
+            assignedModel.addRow(new Object[]{
+                    c.getCourseId(),
+                    c.getCourseName(),
+                    c.getDescription(),
+                    students
+            });
+        }
+
+        JScrollPane tableScroll = new JScrollPane(assignedTable);
+
+        panel.add(topPanel, BorderLayout.NORTH);
+        panel.add(tableScroll, BorderLayout.CENTER);
 
         return panel;
     }
 
     private JPanel createExamsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel titleLabel = new JLabel("My Created Exams");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(titleLabel, BorderLayout.NORTH);
+        String[] columns = {"Exam ID", "Exam Title", "Course", "Questions", "Duration", "Total Marks", "Status", "Actions"};
+        examsModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 7; // Only actions column is editable
+            }
+        };
+        JTable examsTable = createStyledTable(examsModel);
 
-        DefaultListModel<String> examsModel = new DefaultListModel<>();
-        JList<String> examsList = new JList<>(examsModel);
-        examsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        JScrollPane scrollPane = new JScrollPane(examsList);
-        panel.add(scrollPane, BorderLayout.CENTER);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout());
-
-        JButton btnAddQuestions = new JButton("Add/Edit Questions");
-        btnAddQuestions.setBackground(new Color(218, 165, 32));
-        btnAddQuestions.setForeground(Color.WHITE);
-
-        JButton btnViewResults = new JButton("View Exam Results");
-        JButton btnRefresh = new JButton("Refresh Exams");
-
-        buttonPanel.add(btnAddQuestions);
-        buttonPanel.add(btnViewResults);
-        buttonPanel.add(btnRefresh);
-
-        panel.add(buttonPanel, BorderLayout.SOUTH);
-
-        btnAddQuestions.addActionListener(e -> {
-            int selectedIndex = examsList.getSelectedIndex();
-            if (selectedIndex != -1) {
-                addQuestionsToExam(selectedIndex, examsModel);
-            } else {
-                JOptionPane.showMessageDialog(this, "Please select an exam first");
+        examsTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                int row = examsTable.rowAtPoint(e.getPoint());
+                int col = examsTable.columnAtPoint(e.getPoint());
+                if (row >= 0 && col == 7) {
+                    handleManageExam(row);
+                }
             }
         });
 
-        btnViewResults.addActionListener(e -> viewExamResults());
-
-        btnRefresh.addActionListener(e -> loadTeacherExams(examsModel));
-
-        loadTeacherExams(examsModel);
-
-        return panel;
-    }
-
-    private JPanel createResultsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        JLabel titleLabel = new JLabel("Student Results for My Courses");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(titleLabel, BorderLayout.NORTH);
-
-        DefaultListModel<String> resultsModel = new DefaultListModel<>();
-        JList<String> resultsList = new JList<>(resultsModel);
-
-        JScrollPane scrollPane = new JScrollPane(resultsList);
+        JScrollPane scrollPane = new JScrollPane(examsTable);
         panel.add(scrollPane, BorderLayout.CENTER);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout());
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        buttonPanel.setBackground(Color.WHITE);
 
-        JButton btnRefresh = new JButton("Refresh Results");
-        JButton btnExport = new JButton("Export to CSV");
-        btnExport.setBackground(new Color(139, 0, 0));
-        btnExport.setForeground(Color.WHITE);
+        JButton createExamBtn = createActionButton("Create New Exam", new Color(39, 174, 96));
+        createExamBtn.addActionListener(e -> createExam());
 
-        buttonPanel.add(btnRefresh);
-        buttonPanel.add(btnExport);
+        JButton viewResultsBtn = createActionButton("View Results", new Color(155, 89, 182));
+        viewResultsBtn.addActionListener(e -> viewExamResults());
 
+        JButton refreshBtn = createActionButton("Refresh", new Color(52, 152, 219));
+        refreshBtn.addActionListener(e -> loadExams());
+
+        buttonPanel.add(createExamBtn);
+        buttonPanel.add(viewResultsBtn);
+        buttonPanel.add(refreshBtn);
         panel.add(buttonPanel, BorderLayout.SOUTH);
-
-        btnRefresh.addActionListener(e -> loadStudentResults(resultsModel));
-
-        btnExport.addActionListener(e -> exportResultsToCSV());
-
-        loadStudentResults(resultsModel);
 
         return panel;
     }
 
-    private void refreshAllTabs() {
-        // This would refresh all tabs - for now we'll just show a message
-        JOptionPane.showMessageDialog(this, "All data refreshed successfully!");
-    }
+    private JPanel createEnrollmentsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-    private void loadPendingRequests(DefaultListModel<String> model) {
-        model.clear();
-        List<EnrollmentRequest> requests = RequestService.listPendingForTeacher(teacher.getFullName());
-
-        if (requests.isEmpty()) {
-            model.addElement("No pending enrollment requests");
-            return;
-        }
-
-        for (EnrollmentRequest request : requests) {
-            model.addElement(String.format("Student: %-20s | Course: %-15s | Submitted",
-                    request.getStudent(), request.getCourse()));
-        }
-    }
-
-    private void loadTeacherCourses(DefaultListModel<String> model) {
-        model.clear();
-        List<Course> allCourses = CourseService.listAll();
-
-        boolean hasCourses = false;
-        for (Course course : allCourses) {
-            if (course.getTeacher() != null && course.getTeacher().getId() == teacher.getId()) {
-                model.addElement(String.format("ID: %-3d | %-25s | %s",
-                        course.getId(), course.getName(),
-                        course.getDescription().length() > 30 ?
-                                course.getDescription().substring(0, 30) + "..." : course.getDescription()));
-                hasCourses = true;
+        String[] columns = {"Request ID", "Student", "Course", "Request Date", "Status"};
+        enrollmentsModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
             }
-        }
+        };
+        JTable enrollmentsTable = createStyledTable(enrollmentsModel);
 
-        if (!hasCourses) {
-            model.addElement("No courses assigned to you. Contact administrator.");
-        }
+        JScrollPane scrollPane = new JScrollPane(enrollmentsTable);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        buttonPanel.setBackground(Color.WHITE);
+
+        JButton approveBtn = createActionButton("Approve", new Color(39, 174, 96));
+        approveBtn.addActionListener(e -> handleEnrollmentDecision(enrollmentsTable.getSelectedRow(), true));
+
+        JButton rejectBtn = createActionButton("Reject", new Color(231, 76, 60));
+        rejectBtn.addActionListener(e -> handleEnrollmentDecision(enrollmentsTable.getSelectedRow(), false));
+
+        JButton refreshBtn = createActionButton("Refresh", new Color(52, 152, 219));
+        refreshBtn.addActionListener(e -> loadEnrollments());
+
+        buttonPanel.add(approveBtn);
+        buttonPanel.add(rejectBtn);
+        buttonPanel.add(refreshBtn);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+
+        return panel;
     }
 
-    private void loadTeacherExams(DefaultListModel<String> model) {
-        model.clear();
-        List<Exam> allExams = ExamService.listAll();
-
-        boolean hasExams = false;
-        for (Exam exam : allExams) {
-            Course course = CourseService.findById(exam.getCourseId());
-            if (course != null && course.getTeacher() != null && course.getTeacher().getId() == teacher.getId()) {
-                int questionCount = exam.getQuestions().size();
-                String status = questionCount > 0 ? "Ready" : "No Questions";
-                model.addElement(String.format("ID: %-3d | %-20s | Questions: %-2d | %s",
-                        exam.getId(), exam.getTitle(), questionCount, status));
-                hasExams = true;
-            }
-        }
-
-        if (!hasExams) {
-            model.addElement("No exams created for your courses yet");
-        }
-    }
-
-    private void loadStudentResults(DefaultListModel<String> model) {
-        model.clear();
-        List<Result> allResults = ResultService.listAll();
-
-        boolean hasResults = false;
-        for (Result result : allResults) {
-            Exam exam = ExamService.findById(result.getExamId());
-            if (exam != null) {
-                Course course = CourseService.findById(exam.getCourseId());
-                if (course != null && course.getTeacher() != null && course.getTeacher().getId() == teacher.getId()) {
-                    User student = UserService.findById(result.getStudentId());
-                    String studentName = student != null ? student.getFullName() : "Unknown Student";
-                    String grade = getGrade(result.getScore());
-                    model.addElement(String.format("%-20s | %-15s | Score: %-5.1f | Grade: %s",
-                            studentName, exam.getTitle(), result.getScore(), grade));
-                    hasResults = true;
+    private JTable createStyledTable(DefaultTableModel model) {
+        JTable table = new JTable(model) {
+            @Override
+            public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                if (!isRowSelected(row)) {
+                    c.setBackground(row % 2 == 0 ? new Color(248, 248, 248) : Color.WHITE);
                 }
+                return c;
             }
-        }
+        };
 
-        if (!hasResults) {
-            model.addElement("No results available for your courses");
-        }
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        table.setRowHeight(35);
+        table.setShowGrid(true);
+        table.setGridColor(new Color(236, 240, 241));
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        header.setReorderingAllowed(false);
+        java.awt.Dimension headerSize = header.getPreferredSize();
+        header.setPreferredSize(new java.awt.Dimension(headerSize.width, 32));
+
+        // Custom header renderer with solid green background and centered text
+        javax.swing.table.DefaultTableCellRenderer headerRenderer = new javax.swing.table.DefaultTableCellRenderer();
+        headerRenderer.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        headerRenderer.setOpaque(true);
+        headerRenderer.setBackground(new Color(39, 174, 96));
+        headerRenderer.setForeground(Color.WHITE);
+        headerRenderer.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(32, 148, 82)));
+
+        header.setDefaultRenderer(headerRenderer);
+
+        return table;
     }
 
-    private String getGrade(double score) {
-        if (score >= 90) return "A";
-        else if (score >= 80) return "B";
-        else if (score >= 70) return "C";
-        else if (score >= 60) return "D";
-        else return "F";
-    }
+    private JButton createActionButton(String text, Color color) {
+        JButton button = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-    private void approveSelectedRequest(int index, DefaultListModel<String> model) {
-        List<EnrollmentRequest> requests = RequestService.listPendingForTeacher(teacher.getFullName());
+                if (getModel().isPressed()) {
+                    g2.setColor(color.darker());
+                } else if (getModel().isRollover()) {
+                    g2.setColor(color.brighter());
+                } else {
+                    g2.setColor(color);
+                }
 
-        if (index < requests.size()) {
-            EnrollmentRequest request = requests.get(index);
-            int confirm = JOptionPane.showConfirmDialog(
-                    this,
-                    "Approve enrollment request from " + request.getStudent() + " for " + request.getCourse() + "?",
-                    "Confirm Approval",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                RequestService.approveRequest(request);
-                JOptionPane.showMessageDialog(this,
-                        "Request approved for " + request.getStudent() + " in " + request.getCourse());
-                loadPendingRequests(model); // Refresh the list
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g);
             }
+        };
+
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        return button;
+    }
+
+    private void loadData() {
+        loadCourses();
+        loadExams();
+        loadEnrollments();
+    }
+
+    private void loadCourses() {
+        coursesModel.setRowCount(0);
+        List<Course> courses = CourseService.getCoursesByTeacher(currentUser.getUserId());
+
+        for (Course course : courses) {
+            int studentCount = getStudentCountForCourse(course.getCourseId());
+            String status = studentCount > 0 ? "Active" : "No Students";
+
+            coursesModel.addRow(new Object[]{
+                    course.getCourseId(),
+                    course.getCourseName(),
+                    course.getDescription(),
+                    studentCount + " students",
+                    status,
+                    "Manage"
+            });
         }
     }
 
-    private void showAllRequests() {
-        List<EnrollmentRequest> allRequests = RequestService.getAllRequests();
-
-        if (allRequests.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No enrollment requests found");
+    private void handleManageExam(int row) {
+        if (row < 0) {
             return;
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("All Enrollment Requests:\n\n");
-
-        for (EnrollmentRequest request : allRequests) {
-            sb.append(String.format("Student: %s\nCourse: %s\nTeacher: %s\nStatus: %s\n\n",
-                    request.getStudent(), request.getCourse(), request.getTeacher(), request.getStatus()));
+        int examId = (int) examsModel.getValueAt(row, 0);
+        Exam exam = ExamService.getExamById(examId);
+        if (exam == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not load exam details from database.",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
         }
 
-        JTextArea textArea = new JTextArea(sb.toString());
-        textArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(500, 400));
+        Object[] options = {"Add / Manage Questions", "Edit Exam", "Delete Exam", "Cancel"};
+        int choice = JOptionPane.showOptionDialog(this,
+                "What would you like to do with exam '" + exam.getExamName() + "'?",
+                "Manage Exam",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]);
 
-        JOptionPane.showMessageDialog(this, scrollPane, "All Enrollment Requests", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void createExamForCourse(int index, DefaultListModel<String> model) {
-        List<Course> allCourses = CourseService.listAll();
-        List<Course> myCourses = new ArrayList<>();
-
-        for (Course course : allCourses) {
-            if (course.getTeacher() != null && course.getTeacher().getId() == teacher.getId()) {
-                myCourses.add(course);
-            }
-        }
-
-        if (index < myCourses.size()) {
-            Course selectedCourse = myCourses.get(index);
-            new ExamCreatorFrame(teacher).setVisible(true);
+        if (choice == 0) {
+            EnhancedQuestionEditorFrame editor = new EnhancedQuestionEditorFrame(exam, currentUser);
+            editor.setVisible(true);
+        } else if (choice == 1) {
+            editExam(exam);
+        } else if (choice == 2) {
+            deleteExam(exam);
         }
     }
 
-    private void addQuestionsToExam(int index, DefaultListModel<String> model) {
-        List<Exam> allExams = ExamService.listAll();
-        List<Exam> myExams = new ArrayList<>();
-
-        for (Exam exam : allExams) {
-            Course course = CourseService.findById(exam.getCourseId());
-            if (course != null && course.getTeacher() != null && course.getTeacher().getId() == teacher.getId()) {
-                myExams.add(exam);
-            }
+    private void editExam(Exam exam) {
+        String newTitle = JOptionPane.showInputDialog(this,
+                "Exam title:", exam.getExamName());
+        if (newTitle == null) return;
+        newTitle = newTitle.trim();
+        if (newTitle.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Title cannot be empty.");
+            return;
         }
 
-        if (index < myExams.size()) {
-            Exam selectedExam = myExams.get(index);
-            new QuestionEditorFrame(selectedExam).setVisible(true);
+        String newDurationStr = JOptionPane.showInputDialog(this,
+                "Duration in minutes:", exam.getDurationMinutes());
+        if (newDurationStr == null) return;
+        int newDuration;
+        try {
+            newDuration = Integer.parseInt(newDurationStr.trim());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Invalid duration.");
+            return;
+        }
+
+        exam.setExamName(newTitle);
+        exam.setDurationMinutes(newDuration);
+
+        boolean ok = ExamService.updateExam(exam);
+        if (ok) {
+            JOptionPane.showMessageDialog(this, "Exam updated successfully.");
+            loadExams();
         } else {
-            JOptionPane.showMessageDialog(this, "Please select a valid exam");
+            JOptionPane.showMessageDialog(this, "Failed to update exam.", "Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void deleteExam(Exam exam) {
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to delete exam '" + exam.getExamName() + "' and all its questions?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        boolean ok = ExamService.deleteExam(exam.getExamId());
+        if (ok) {
+            JOptionPane.showMessageDialog(this, "Exam deleted successfully.");
+            loadExams();
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to delete exam.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void loadExams() {
+        examsModel.setRowCount(0);
+        List<Exam> exams = ExamService.getExamsByTeacher(currentUser.getUserId());
+
+        for (Exam exam : exams) {
+            Course course = CourseService.getCourseById(exam.getCourseId());
+            String courseName = course != null ? course.getCourseName() : "Unknown Course";
+            int questionCount = ExamService.getQuestionCount(exam.getExamId());
+            double totalMarks = ExamService.getTotalMarks(exam.getExamId());
+            String status = exam.getExamDate().isAfter(java.time.LocalDate.now()) ? "Upcoming" : "Completed";
+
+            examsModel.addRow(new Object[]{
+                    exam.getExamId(),
+                    exam.getExamName(),
+                    courseName,
+                    questionCount + " questions",
+                    exam.getDurationMinutes() + " mins",
+                    totalMarks + " marks",
+                    status,
+                    "Manage"
+            });
+        }
+    }
+
+    private void loadEnrollments() {
+        enrollmentsModel.setRowCount(0);
+        List<Enrollment> pending = EnrollmentService.getPendingEnrollmentsByTeacher(currentUser.getUserId());
+
+        for (Enrollment e : pending) {
+            User student = UserService.getUserById(e.getStudentId());
+            String studentLabel = (student != null)
+                    ? student.getUserId() + " - " + student.getUsername()
+                    : e.getStudentId();
+
+            Course course = CourseService.getCourseById(e.getCourseId());
+            String courseLabel = (course != null)
+                    ? course.getCourseId() + " - " + course.getCourseName()
+                    : String.valueOf(e.getCourseId());
+
+            String date = e.getRequestDate() != null
+                    ? e.getRequestDate().toString()
+                    : "N/A";
+
+            enrollmentsModel.addRow(new Object[]{
+                    e.getEnrollmentId(),
+                    studentLabel,
+                    courseLabel,
+                    date,
+                    e.getStatus()
+            });
+        }
+    }
+
+    private void handleEnrollmentDecision(int selectedRow, boolean approve) {
+        if (selectedRow < 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Please select a request first.",
+                    "Selection Required",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int enrollmentId = (int) enrollmentsModel.getValueAt(selectedRow, 0);
+        String action = approve ? "APPROVED" : "REJECTED";
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to " + action.toLowerCase() + " this enrollment request?",
+                approve ? "Confirm Approval" : "Confirm Rejection",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            boolean ok = EnrollmentService.updateEnrollmentStatus(enrollmentId, action, currentUser.getUserId());
+            if (ok) {
+                JOptionPane.showMessageDialog(this,
+                        "Enrollment request " + action.toLowerCase() + " successfully.");
+                loadEnrollments();
+                loadCourses(); // update student counts/statuses
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Failed to update enrollment request.",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private int getStudentCountForCourse(int courseId) {
+        return EnrollmentService.countApprovedEnrollmentsByCourse(courseId);
+    }
+
+    private void createExam() {
+        // Open the enhanced exam creator
+        new ExamCreatorFrame(currentUser).setVisible(true);
     }
 
     private void viewExamResults() {
-        List<Result> allResults = ResultService.listAll();
-
-        StringBuilder resultsText = new StringBuilder();
-        resultsText.append("EXAM RESULTS SUMMARY\n");
-        resultsText.append("====================\n\n");
-
-        boolean hasResults = false;
-
-        // Group by exam
-        for (Exam exam : ExamService.listAll()) {
-            Course course = CourseService.findById(exam.getCourseId());
-            if (course != null && course.getTeacher() != null && course.getTeacher().getId() == teacher.getId()) {
-                resultsText.append("Exam: ").append(exam.getTitle()).append("\n");
-                resultsText.append("Course: ").append(course.getName()).append("\n");
-                resultsText.append("----------------------------------------\n");
-
-                int resultCount = 0;
-                double totalScore = 0;
-
-                for (Result result : allResults) {
-                    if (result.getExamId() == exam.getId()) {
-                        User student = UserService.findById(result.getStudentId());
-                        String studentName = student != null ? student.getFullName() : "Unknown";
-                        resultsText.append(String.format("  %-20s: %6.2f\n", studentName, result.getScore()));
-                        totalScore += result.getScore();
-                        resultCount++;
-                        hasResults = true;
-                    }
-                }
-
-                if (resultCount > 0) {
-                    double average = totalScore / resultCount;
-                    resultsText.append(String.format("  Average Score: %.2f\n", average));
-                } else {
-                    resultsText.append("  No results yet\n");
-                }
-                resultsText.append("\n");
-            }
-        }
-
-        if (!hasResults) {
-            resultsText.append("No exam results available for your courses");
-        }
-
-        JTextArea textArea = new JTextArea(resultsText.toString());
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(600, 400));
-
-        JOptionPane.showMessageDialog(this, scrollPane, "Exam Results Summary", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this,
+                "Exam results functionality will be implemented here.\n" +
+                        "This will show student performance and statistics for each exam.",
+                "Exam Results", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private void exportResultsToCSV() {
-        JOptionPane.showMessageDialog(this,
-                "CSV export functionality would be implemented here.\n" +
-                        "This would export all student results to a CSV file for further analysis.");
+    private void logout() {
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to logout?", "Confirm Logout",
+                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            dispose();
+            SwingUtilities.invokeLater(() -> {
+                // Replace with your actual login frame
+                // new LoginFrame().setVisible(true);
+            });
+            JOptionPane.showMessageDialog(null, "You have been logged out successfully.");
+        }
     }
 
     public static void main(String[] args) {
-        // Test method - remove in production
+        // For testing purposes
         SwingUtilities.invokeLater(() -> {
-            User testTeacher = new User(1, "John Doe", "teacher1", "pass", "teacher", "teacher@school.edu");
-            new TeacherDashboard(testTeacher).setVisible(true);
+            User testUser = new User("teacher1", "password", "Professor Smith", "prof.smith@school.edu", User.Role.TEACHER);
+            new TeacherDashboard(testUser).setVisible(true);
         });
     }
 }
