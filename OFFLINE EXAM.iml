@@ -7,5 +7,9 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" exported="" name="jstl-1.2" level="project" />
+    <orderEntry type="library" exported="" name="gson-2.11.0" level="project" />
+    <orderEntry type="library" exported="" name="javax.servlet-api-4.0.1" level="project" />
+    <orderEntry type="library" exported="" name="mysql-connector-j-9.5.0" level="project" />
   </component>
 </module>
